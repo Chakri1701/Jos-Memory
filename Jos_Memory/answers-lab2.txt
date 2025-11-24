@@ -1,0 +1,45 @@
+1. Assuming that the following JOS kernel code is correct, what type should variable x have, uintptr_t or physaddr_t, and why?
+A: Assuming that the following JOS kernel code is correct, x should have uintptr_t type variable. In order to return a virtual address, the function return_a_pointer() should return an uintptr_t (all pointers are virtual addresses). If value is a virtual address, then x contains its integer representation.
+
+2. What entries (rows) in the page directory have been filled in at this point? What addresses do they map and where do they point? In other words, fill out this table as much as possible:
+A: The page directory is intended to refer to 1,024 second-level page tables, and each second-level page table can address up to 1,024 individual pages. As a result, a single page directory entry can point to a significant 4-megabyte (0x400000) memory space. An inspection of the QEMU output and an examination of the mem_init() function are required to complete the table and gain particular details. These sources reveal information on the initialized memory layout as well as the general memory management structure within the operating system or virtualization environment.
+ The table's finalization can be accomplished by referencing the QEMU output and scrutinizing the mem_init() function.
+ Entry  Base Virtual Address    Points to (logically)
+ 1023        0xffc00000 Page table for top 4MB of phys memory
+ 1022        0xff800000
+    Page table for second top 4MB of physical memory
+    ….. ……..    ……
+    960 0xf0000000  Page table for first 4MB of physical memory
+    959 0xefc00000  The first 8 PDEs are page table for boot stack
+    957 0xef400000  Page Directory itself
+
+    956    0xef000000    Pages data structure
+    955    0xeec00000     Unmapped
+    2   0x00800000  Unmapped
+    1       0x00400000  Unmapped
+    0      0x00000000    Unmapped
+
+
+3. We have placed the kernel and user environment in the same address space. Why will user programs not be able to read or write the kernel’s memory? What specific mechanisms protect the kernel memory?
+A:  Due to security safeguards, user applications cannot access or write kernel memory even when they share the same address space. It employs the x86 protected mode's protection mechanism, particularly the page-Level protection, in this case.
+Kernel and user applications run in various processor modes, or protective rings. The kernel typically operates in ring 0, whereas user applications execute in ring 3.
+MMU will check the access bits when referencing a specific memory address. A page fault exception will be triggered if the current method does not have appropriate authority to access the specified page.
+
+4. What is the maximum amount of physical memory that this operating system can support? Why?
+It will be possible to use no more RAM than this amount, as the OS maps all RAM to the last 256 MB of virtual address space. So 256MB is my final answer.
+
+5. How much space overhead is there for managing memory, if we actually had the maximum amount of physical memory? How is this overhead broken down?268435456 (max RAM) / 4096 (bytes per page) = 65536 frames.There are 262144 bytes just for page tables, since each frame occupies a 4 byte entry.  For page directory we need more 4*1024 = 4096 bytes.Arrays of PageInfo structs are another overhead, with each struct taking up 8 bytes, thus occupying 524280 bytes per frame.
+We get 4100 KB bytes of overhead if we combine the sizes of the Page Directory (PD) and Page Table (PT) structures in memory.
+                    Page Directory (PD):
+                    •   1024 entries in the Page Directory.
+                    •   Each entry is 4 bytes.
+                    •   Total size of the Page Directory: 1024 entries × 4 bytes = 4 KB 1024 entries×4 bytes=4 KB. Page Table (PT): 1024
+                    Page Tables in the Page Table Directory (PTD).
+                    •   Each Page Table has 1024 entries.
+                    •   Each entry in the Page Table is 4 bytes.
+                    •   Total size of the Page Table: 1024 PTs × 1024 entries × 4 bytes = 4 MB 1024 PTs×1024 entries×4 bytes=4 MB.
+                    The total overhead is 4MB + 4KB = 4100 KB.
+
+6. Revisit the page table setup in kern/entry.S and kern/entrypgdir.c. Immediately after we turn on paging, EIP is still a low number (a little over 1MB). At what point do we transition to running at an EIP above KERNBASE? What makes it possible for us to continue executing at a low EIP between when we enable paging and when we begin running at an EIP above KERNBASE? Why is this transition necessary?
+A: The transition occurs after the $relocated leap. Both virtual addresses [0, 4MB] and [KERNBASE, KERNBASE+4MB] are mapped to physical addresses [0, 4MB] in kern/entrypgdir.c. Since everything else within the kernel is allocated to large addresses in kern_pgdir, and once kern_pgdir loads, VA [0, 4MB) no longer corresponds to [0, 4MB]. Another reason is because [0, 4MB] is not a reserved address for the kernel. Because high addresses like 0xf0000000 are unavailable at the time, it only stores there temporary before paging is enabled.
+
