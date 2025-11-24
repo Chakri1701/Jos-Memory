@@ -1,1 +1,8 @@
-This is template code for Lab 2
+# JOS Memory Management – Lab 1 & Lab 2
+
+This repository contains my JOS operating system work for Lab 1 and Lab 2, including memory management, page allocation, paging setup, and the automated grading scripts used to verify the correctness of my implementation. The project includes the full bootloader, kernel, user programs, and test framework required to build and run JOS inside QEMU.
+
+---
+
+
+
